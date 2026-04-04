@@ -69,29 +69,4 @@ async def refresh_dashboard(
     return {"message": "Dashboard refresh triggered"}
 
 
-@router.get("/brands/{brand_id}/alerts")
-async def get_alerts(
-    brand_id: UUID,
-    account_id: AccountId,
-    unread: bool = False,
-    db: AsyncSession = Depends(get_db),
-):
-    stmt = select(Alert).where(Alert.brand_profile_id == brand_id)
-    if unread:
-        stmt = stmt.where(Alert.read == False)
-    stmt = stmt.order_by(Alert.triggered_at.desc()).limit(50)
-
-    result = await db.execute(stmt)
-    alerts = result.scalars().all()
-    return [
-        {
-            "id": str(a.id),
-            "alert_type": a.alert_type.value,
-            "severity": a.severity.value,
-            "title": a.title,
-            "description": a.description,
-            "triggered_at": a.triggered_at.isoformat(),
-            "read": a.read,
-        }
-        for a in alerts
-    ]
+## Alerts are handled by the dedicated alerts router (app.routers.alerts)

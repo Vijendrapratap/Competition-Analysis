@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.config import get_settings
-from app.routers import health, users, brands, competitors, competitor_detail, dashboard, kpi_config, collection_jobs
+from app.routers import health, users, brands, competitors, competitor_detail, dashboard, kpi_config, collection_jobs, schedule, alerts
 
 settings = get_settings()
 
@@ -39,3 +39,5 @@ app.include_router(kpi_config.router, prefix="/api", tags=["KPI Config"])
 app.include_router(dashboard.router, prefix="/api", tags=["Dashboard"])
 app.include_router(competitor_detail.router, prefix="/api", tags=["Competitor Detail"])
 app.include_router(collection_jobs.router, prefix="/api", tags=["Collection Jobs"])
+app.include_router(schedule.router, prefix="/api", tags=["Schedule"])
+app.include_router(alerts.router, prefix="/api", tags=["Alerts"])
