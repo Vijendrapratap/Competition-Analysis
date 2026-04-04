@@ -1,14 +1,19 @@
+import structlog
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from temporalio.client import Client
 
+from app.config import get_settings
 from app.database import get_db
 from app.middleware.auth import AccountId
 from app.models.brands import BrandProfile
 from app.models.collection_jobs import CollectionJob, JobType, JobStatus, TriggeredBy
 from app.models.competitors import Competitor
 from app.schemas.collection import CollectionJobResponse
+
+logger = structlog.get_logger()
 
 router = APIRouter()
 
@@ -48,7 +53,28 @@ async def trigger_collection(
     await db.flush()
     await db.refresh(job)
 
-    # TODO: Dispatch Temporal FullCollectionWorkflow (Phase 4.1)
+    # Dispatch Temporal workflow
+    competitor_configs = [
+        {
+            "id": str(c.id),
+            "name": c.name,
+            "website": c.website,
+            "social_profiles": c.social_profiles,
+            "ad_library_url": c.ad_library_url,
+        }
+        for c in competitors
+    ]
+    try:
+        settings = get_settings()
+        client = await Client.connect(settings.TEMPORAL_HOST)
+        await client.start_workflow(
+            "FullCollectionWorkflow",
+            args=[str(brand_id), competitor_configs, str(job.id), "full"],
+            id=f"collection-{job.id}",
+            task_queue="competeiq-main",
+        )
+    except Exception as e:
+        logger.error("temporal_dispatch_failed", error=str(e))
 
     return {"message": "Collection triggered", "job_id": str(job.id)}
 
