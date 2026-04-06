@@ -26,6 +26,9 @@ resend==0.7.0
 # Storage
 boto3==1.34.25
 
+# PDF
+weasyprint==61.2
+
 # Utilities
 structlog==24.1.0
 redis==5.0.1
