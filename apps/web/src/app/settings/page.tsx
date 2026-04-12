@@ -216,9 +216,24 @@ function KpiConfigTab({ brandProfileId }: { brandProfileId: string }) {
 
 // ── Alerts Tab ──
 
+const BLUEPRINT_DEFAULTS = [
+  { kpi_key: "posting_frequency", label: "Posting Spike", condition: "changes_by_pct", threshold: 40, severity: "medium", description: "Competitor posts >40% more than their baseline — indicates a campaign launch" },
+  { kpi_key: "engagement_rate", label: "Engagement Surge", condition: "changes_by_pct", threshold: 200, severity: "high", description: "Engagement 3× higher than baseline — viral content or paid boost detected" },
+  { kpi_key: "follower_growth", label: "Follower Growth Spike", condition: "changes_by_pct", threshold: 50, severity: "medium", description: "Unusually fast follower acquisition — possible paid campaign or influencer collab" },
+  { kpi_key: "active_ads", label: "New Ad Campaign", condition: "new_detected", threshold: 1, severity: "high", description: "New paid ad creative detected in competitor's ad library" },
+  { kpi_key: "website_change", label: "Pricing Page Change", condition: "new_detected", threshold: 1, severity: "high", description: "Competitor's pricing or homepage headline was updated" },
+  { kpi_key: "keyword_ranking", label: "Keyword Rank Drop", condition: "drops_below", threshold: 10, severity: "medium", description: "Competitor gains top-10 ranking on a keyword you're targeting" },
+];
+
 function AlertsTab({ brandProfileId }: { brandProfileId: string }) {
   const queryClient = useQueryClient();
   const [newRule, setNewRule] = useState({ kpi_key: "", condition: "exceeds", threshold: "" });
+  const [activeRules, setActiveRules] = useState<Record<string, boolean>>({
+    posting_frequency: true,
+    engagement_rate: true,
+    active_ads: true,
+    website_change: true,
+  });
 
   const { data: rules = [] } = useQuery({
     queryKey: ["alert-rules", brandProfileId],
@@ -226,6 +241,7 @@ function AlertsTab({ brandProfileId }: { brandProfileId: string }) {
       const res = await api.get(`/api/brands/${brandProfileId}/alert-rules`);
       return res.data;
     },
+    retry: false,
   });
 
   const createRule = useMutation({
@@ -245,13 +261,54 @@ function AlertsTab({ brandProfileId }: { brandProfileId: string }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alert-rules"] }),
   });
 
+  const severityColors: Record<string, string> = {
+    high: "bg-red-50 text-red-700 border-red-200",
+    medium: "bg-amber-50 text-amber-700 border-amber-200",
+    low: "bg-gray-50 text-gray-600 border-gray-200",
+  };
+
   return (
     <div className="space-y-6">
+      {/* Recommended Defaults */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recommended Alert Thresholds</CardTitle>
+          <CardDescription>
+            Industry-standard triggers based on competitive intelligence best practices. Toggle to enable or disable each.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {BLUEPRINT_DEFAULTS.map((rule) => (
+            <div key={rule.kpi_key} className="flex items-start justify-between gap-4 rounded-lg border p-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-sm font-medium">{rule.label}</span>
+                  <Badge variant="outline" className={`text-[10px] ${severityColors[rule.severity]}`}>
+                    {rule.severity}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {rule.condition === "new_detected" ? "on detection" :
+                     rule.condition === "drops_below" ? `< ${rule.threshold}` :
+                     `> ${rule.threshold}%`}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">{rule.description}</p>
+              </div>
+              <Switch
+                checked={activeRules[rule.kpi_key] ?? false}
+                onCheckedChange={(v) => setActiveRules((prev) => ({ ...prev, [rule.kpi_key]: v }))}
+              />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Custom Rules */}
       <Card>
         <CardHeader>
           <CardTitle>Custom Alert Rules</CardTitle>
           <CardDescription>
-            Get notified when competitor metrics cross your thresholds
+            Add your own rules for any metric
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -281,11 +338,11 @@ function AlertsTab({ brandProfileId }: { brandProfileId: string }) {
             </div>
           )}
 
-          <div className="border rounded-lg p-4 space-y-3">
-            <p className="text-sm font-medium">Add New Rule</p>
+          <div className="border rounded-lg p-4 space-y-3 bg-gray-50">
+            <p className="text-sm font-medium">Add Custom Rule</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <Label>KPI</Label>
+                <Label>Metric</Label>
                 <Input
                   placeholder="e.g. engagement_rate"
                   value={newRule.kpi_key}
@@ -296,7 +353,7 @@ function AlertsTab({ brandProfileId }: { brandProfileId: string }) {
               <div>
                 <Label>Condition</Label>
                 <select
-                  className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-md border px-3 py-2 text-sm bg-white"
                   value={newRule.condition}
                   onChange={(e) => setNewRule({ ...newRule, condition: e.target.value })}
                 >
@@ -334,38 +391,48 @@ function AlertsTab({ brandProfileId }: { brandProfileId: string }) {
         </CardContent>
       </Card>
 
+      {/* Notification Preferences */}
       <Card>
         <CardHeader>
-          <CardTitle>Notification Preferences</CardTitle>
-          <CardDescription>How you want to be notified about alerts</CardDescription>
+          <CardTitle>Notification Channels</CardTitle>
+          <CardDescription>How and when you receive alert notifications</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium">Email Notifications</p>
+              <p className="text-sm font-medium">Email — High Severity</p>
               <p className="text-xs text-muted-foreground">
-                Receive high-severity alerts immediately via email
+                Immediate email for pricing changes, major campaigns, and viral content
               </p>
             </div>
             <Switch defaultChecked />
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium">Weekly Digest</p>
+              <p className="text-sm font-medium">Email — Weekly Digest</p>
               <p className="text-xs text-muted-foreground">
-                Summary of medium/low alerts delivered weekly
+                Medium/low alerts bundled into a Monday morning summary
               </p>
             </div>
             <Switch defaultChecked />
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium">In-App Notifications</p>
+              <p className="text-sm font-medium">In-App Feed</p>
               <p className="text-xs text-muted-foreground">
-                Show alerts in the dashboard alert feed
+                All alerts visible in the dashboard Alerts page
               </p>
             </div>
             <Switch defaultChecked />
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Slack Integration</p>
+              <p className="text-xs text-muted-foreground">
+                Push high-severity alerts to a Slack channel
+              </p>
+            </div>
+            <Switch />
           </div>
         </CardContent>
       </Card>

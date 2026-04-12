@@ -12,6 +12,12 @@ export function setTokenGetter(fn: () => Promise<string | null>) {
 }
 
 api.interceptors.request.use(async (config) => {
+  // Dev mode: bypass Clerk with a static token header
+  if (process.env.NODE_ENV === "development") {
+    config.headers["X-Dev-Token"] = "dev";
+    return config;
+  }
+
   if (getTokenFn) {
     const token = await getTokenFn();
     if (token) {

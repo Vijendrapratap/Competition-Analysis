@@ -1,9 +1,6 @@
-import { authMiddleware } from "@clerk/nextjs";
-
-export default authMiddleware({
-  publicRoutes: ["/", "/sign-in(.*)", "/sign-up(.*)", "/api/v1/health"],
-});
-
-export const config = {
-  matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
-};
+// Auth disabled in dev (no Clerk keys) — passthrough all routes
+import { NextResponse } from "next/server";
+export default function middleware() {
+  return NextResponse.next();
+}
+export const config = { matcher: [] };

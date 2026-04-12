@@ -1,7 +1,7 @@
 import uuid
 import enum
 from datetime import datetime
-from sqlalchemy import String, Enum, ForeignKey, func
+from sqlalchemy import String, Boolean, Enum, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -24,6 +24,12 @@ class Account(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255))
     plan: Mapped[PlanType] = mapped_column(Enum(PlanType), default=PlanType.starter)
+    # Subscription / billing
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    plan_expires_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    trial_ends_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

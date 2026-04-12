@@ -1,9 +1,6 @@
-import { SignUp } from "@clerk/nextjs";
+import { redirect } from "next/navigation";
 
+// Mock mode: skip sign-up
 export default function SignUpPage() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <SignUp afterSignUpUrl="/onboarding/brand" />
-    </div>
-  );
+  redirect("/dashboard");
 }

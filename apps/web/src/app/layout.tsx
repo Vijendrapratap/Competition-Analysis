@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Inter } from "next/font/google";
 import { QueryProvider } from "@/components/layout/query-provider";
 import { AuthTokenProvider } from "@/components/layout/auth-provider";
@@ -18,14 +17,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
-        <body className={inter.className}>
-          <QueryProvider>
-            <AuthTokenProvider>{children}</AuthTokenProvider>
-          </QueryProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <QueryProvider>
+          <AuthTokenProvider>{children}</AuthTokenProvider>
+        </QueryProvider>
+      </body>
+    </html>
   );
 }

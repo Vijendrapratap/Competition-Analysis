@@ -1,13 +1,12 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
-import { Bell } from "lucide-react";
+import { Bell, User } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthProfile } from "@/hooks/use-auth";
 import api from "@/lib/api";
 
 export function Header() {
-  const { brandProfile } = useAuthProfile();
+  const { brandProfile, profile } = useAuthProfile();
 
   const { data: alerts } = useQuery({
     queryKey: ["unread-alerts", brandProfile?.id],
@@ -27,7 +26,10 @@ export function Header() {
     <header className="flex h-16 items-center justify-between border-b bg-white px-6">
       <div className="text-sm text-muted-foreground">
         {brandProfile?.name && (
-          <span>Monitoring for <span className="font-medium text-gray-900">{brandProfile.name}</span></span>
+          <span>
+            Monitoring for{" "}
+            <span className="font-medium text-gray-900">{brandProfile.name}</span>
+          </span>
         )}
       </div>
       <div className="flex items-center gap-4">
@@ -39,7 +41,10 @@ export function Header() {
             </span>
           )}
         </button>
-        <UserButton afterSignOutUrl="/" />
+        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm text-gray-700">
+          <User className="h-4 w-4" />
+          <span>{profile?.name ?? "Demo User"}</span>
+        </div>
       </div>
     </header>
   );

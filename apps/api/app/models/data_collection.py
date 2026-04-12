@@ -76,7 +76,7 @@ class PageSnapshot(Base):
     url: Mapped[str] = mapped_column(String(2000))
     raw_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    extra_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True, name="metadata")
     quality_status: Mapped[QualityStatus] = mapped_column(Enum(QualityStatus), default=QualityStatus.clean)
     quality_notes: Mapped[list | None] = mapped_column(ARRAY(Text), nullable=True)
     scraped_at: Mapped[datetime] = mapped_column(server_default=func.now())

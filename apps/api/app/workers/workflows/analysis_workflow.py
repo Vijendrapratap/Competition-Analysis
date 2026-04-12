@@ -11,6 +11,7 @@ with workflow.unsafe.imports_passed_through():
         run_website_change_analysis,
         run_messaging_analysis,
     )
+    from app.workers.activities.analyze_sentiment import run_sentiment_analysis
 
 
 RETRY_POLICY = RetryPolicy(
@@ -57,13 +58,20 @@ class CompetitorAnalysisWorkflow:
             social_task, paid_task, website_task
         )
 
-        # Step 2: Messaging analysis depends on the above
-        messaging_result = await workflow.execute_activity(
+        # Step 2: Messaging analysis + sentiment run in parallel (both depend on collected posts)
+        messaging_task = workflow.execute_activity(
             run_messaging_analysis,
             args=[competitor_id, filter_mode, period_start, period_end],
             start_to_close_timeout=ACTIVITY_TIMEOUT,
             retry_policy=RETRY_POLICY,
         )
+        sentiment_task = workflow.execute_activity(
+            run_sentiment_analysis,
+            args=[competitor_id, filter_mode, period_start, period_end],
+            start_to_close_timeout=ACTIVITY_TIMEOUT,
+            retry_policy=RETRY_POLICY,
+        )
+        messaging_result, sentiment_result = await asyncio.gather(messaging_task, sentiment_task)
 
         return {
             "competitor_id": competitor_id,
@@ -71,4 +79,5 @@ class CompetitorAnalysisWorkflow:
             "paid": paid_result,
             "website": website_result,
             "messaging": messaging_result,
+            "sentiment": sentiment_result,
         }

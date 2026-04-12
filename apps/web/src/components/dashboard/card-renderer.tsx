@@ -49,14 +49,20 @@ export function CardRenderer({ cards, data }: Props) {
         return <ExecutiveSummaryCard summary={data.executive_summary} />;
       case "alert_feed":
         return <AlertFeedCard alerts={data.alerts} />;
-      case "kpi_trend_chart":
+      case "kpi_trend_chart": {
+        const chartData = data.kpi_snapshots[card.dataKey] || [];
+        // Derive competitor keys from data rather than relying on explicit list
+        const chartKeys = chartData.length > 0
+          ? Object.keys(chartData[0]).filter((k) => k !== "period")
+          : competitorNames;
         return (
           <KpiTrendChart
             title={KPI_LABELS[card.dataKey] || card.dataKey}
-            data={data.kpi_snapshots[card.dataKey] || []}
-            competitors={competitorNames}
+            data={chartData}
+            competitors={chartKeys}
           />
         );
+      }
       case "share_of_voice_donut":
         return <ShareOfVoiceDonut entries={data.share_of_voice || []} />;
       case "messaging_themes":

@@ -39,7 +39,13 @@ class Settings(BaseSettings):
 
     # App
     ENVIRONMENT: str = "development"
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+    ]
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

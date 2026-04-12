@@ -9,7 +9,11 @@ with workflow.unsafe.imports_passed_through():
     from app.workers.activities.collect_website import collect_website_data
     from app.workers.activities.collect_facebook import collect_facebook_data
     from app.workers.activities.collect_instagram import collect_instagram_data
+    from app.workers.activities.collect_linkedin import collect_linkedin_data
     from app.workers.activities.collect_ad_library import collect_ad_library_data
+    from app.workers.activities.collect_seo import collect_seo_data
+    from app.workers.activities.collect_pricing import collect_pricing_data
+    from app.workers.activities.collect_reviews import collect_review_data
     from app.workers.activities.data_hygiene import run_data_hygiene
     from app.workers.activities.job_status import update_job_status, mark_competitor_complete
 
@@ -149,13 +153,57 @@ class FullCollectionWorkflow:
                 )
             )
 
+        social = comp.get("social_profiles") or {}
+        if social.get("linkedin_url"):
+            collection_tasks.append(
+                workflow.execute_activity(
+                    collect_linkedin_data,
+                    args=[competitor_id, social["linkedin_url"]],
+                    start_to_close_timeout=ACTIVITY_TIMEOUT,
+                    retry_policy=RETRY_POLICY,
+                )
+            )
+
         if collection_tasks:
             await asyncio.gather(*collection_tasks, return_exceptions=True)
 
-        # Run data hygiene after collection
+        # Run data hygiene after social/ad collection
         await workflow.execute_activity(
             run_data_hygiene,
             args=[competitor_id, collection_job_id],
             start_to_close_timeout=ACTIVITY_TIMEOUT,
             retry_policy=RETRY_POLICY,
         )
+
+        # SEO data collection (lower priority, longer timeout)
+        if comp.get("website"):
+            await workflow.execute_activity(
+                collect_seo_data,
+                args=[competitor_id, brand_profile_id, comp["website"], comp.get("seed_keywords", [])],
+                start_to_close_timeout=timedelta(minutes=8),
+                retry_policy=RETRY_POLICY,
+            )
+
+        # Pricing page collection
+        if comp.get("website"):
+            await workflow.execute_activity(
+                collect_pricing_data,
+                args=[competitor_id, brand_profile_id, comp["website"]],
+                start_to_close_timeout=timedelta(minutes=5),
+                retry_policy=RETRY_POLICY,
+            )
+
+        # Review collection (if slugs configured)
+        if comp.get("g2_slug") or comp.get("capterra_slug"):
+            await workflow.execute_activity(
+                collect_review_data,
+                args=[
+                    competitor_id,
+                    brand_profile_id,
+                    comp.get("name", ""),
+                    comp.get("g2_slug"),
+                    comp.get("capterra_slug"),
+                ],
+                start_to_close_timeout=timedelta(minutes=8),
+                retry_policy=RETRY_POLICY,
+            )

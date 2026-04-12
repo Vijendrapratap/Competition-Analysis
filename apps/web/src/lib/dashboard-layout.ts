@@ -31,6 +31,7 @@ export function getDashboardLayout(
     { key: "follower_growth_delta", label: "Follower Growth" },
     { key: "posts_today", label: "New Posts Today" },
     { key: "engagement_latest", label: "Latest Engagement" },
+    { key: "share_of_voice", label: "Share of Voice Trend" },
   ];
 
   for (const kpi of kpiCharts) {

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -13,7 +13,10 @@ from app.database import get_db
 from app.models.accounts import Account, User, UserRole
 
 settings = get_settings()
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)  # Don't reject missing token — dev bypass handles it
+
+DEV_USER_ID  = UUID("00000000-0000-0000-0000-000000000001")
+DEV_ACCOUNT_ID = UUID("00000000-0000-0000-0000-000000000002")
 
 _jwks_cache: dict | None = None
 
@@ -40,22 +43,106 @@ async def _verify_clerk_token(token: str) -> dict:
                 break
         if key is None:
             raise HTTPException(status_code=401, detail="Invalid token signing key")
-
-        payload = jwt.decode(
-            token,
-            key,
-            algorithms=["RS256"],
-            options={"verify_aud": False},
-        )
+        payload = jwt.decode(token, key, algorithms=["RS256"], options={"verify_aud": False})
         return payload
     except JWTError as e:
         raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
 
 
+from types import SimpleNamespace
+
+_DEV_USER_STUB: SimpleNamespace | None = None
+
+
+def _make_dev_user_stub() -> SimpleNamespace:
+    """
+    Create an in-memory dev user stub so routes work without a DB.
+    Uses SimpleNamespace so SQLAlchemy instrumentation is bypassed entirely.
+    Routes that need real DB rows will handle failures themselves.
+    """
+    account = SimpleNamespace(
+        id=DEV_ACCOUNT_ID,
+        name="Dev Account",
+        plan="growth",
+    )
+    user = SimpleNamespace(
+        id=DEV_USER_ID,
+        account_id=DEV_ACCOUNT_ID,
+        clerk_user_id="dev_user",
+        name="Dev User",
+        email="dev@competeiq.local",
+        role=UserRole.owner,
+        account=account,
+    )
+    return user
+
+
+async def _get_or_create_dev_user(db: AsyncSession) -> User:
+    """Return the persistent dev user — falls back to in-memory stub if DB is down."""
+    global _DEV_USER_STUB
+    try:
+        stmt = (
+            select(User)
+            .options(selectinload(User.account))
+            .where(User.id == DEV_USER_ID)
+        )
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+        if user:
+            _DEV_USER_STUB = None  # clear stale stub
+            return user
+
+        # Create dev account
+        account = Account(id=DEV_ACCOUNT_ID, name="Dev Account")
+        db.add(account)
+        await db.flush()
+
+        # Create dev user
+        user = User(
+            id=DEV_USER_ID,
+            account_id=DEV_ACCOUNT_ID,
+            clerk_user_id="dev_user",
+            name="Dev User",
+            email="dev@competeiq.local",
+            role=UserRole.owner,
+        )
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
+
+        # Reload with relationship
+        stmt = (
+            select(User)
+            .options(selectinload(User.account))
+            .where(User.id == DEV_USER_ID)
+        )
+        result = await db.execute(stmt)
+        return result.scalar_one()
+
+    except Exception:
+        # DB unavailable — return in-memory stub so routes can still function
+        if _DEV_USER_STUB is None:
+            _DEV_USER_STUB = _make_dev_user_stub()
+        return _DEV_USER_STUB
+
+
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    # ── Dev bypass ──────────────────────────────────────────────────────────
+    if settings.ENVIRONMENT == "development" and request.headers.get("X-Dev-Token") == "dev":
+        # Return in-memory stub immediately — no DB required
+        # This lets the API work without PostgreSQL in local dev
+        global _DEV_USER_STUB
+        if _DEV_USER_STUB is None:
+            _DEV_USER_STUB = _make_dev_user_stub()
+        return _DEV_USER_STUB
+
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     payload = await _verify_clerk_token(credentials.credentials)
     clerk_user_id = payload.get("sub")
     if not clerk_user_id:
@@ -68,10 +155,8 @@ async def get_current_user(
     )
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
-
     if user is None:
         raise HTTPException(status_code=401, detail="User not found. Complete account setup first.")
-
     return user
 
 
@@ -79,7 +164,6 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 def require_role(*roles: UserRole):
-    """Dependency that checks the current user has one of the required roles."""
     async def _check_role(current_user: CurrentUser) -> User:
         if current_user.role not in roles:
             raise HTTPException(
@@ -91,7 +175,6 @@ def require_role(*roles: UserRole):
 
 
 async def get_account_id(current_user: CurrentUser) -> UUID:
-    """Extract account_id from current user for scoped queries."""
     return current_user.account_id
 
 

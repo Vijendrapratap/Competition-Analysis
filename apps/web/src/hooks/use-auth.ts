@@ -1,65 +1,34 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
-import { useQuery } from "@tanstack/react-query";
-import { useRouter, usePathname } from "next/navigation";
-import { useEffect } from "react";
-import api from "@/lib/api";
-
-interface UserProfile {
-  id: string;
-  account_id: string;
-  clerk_user_id: string;
-  name: string;
-  email: string;
-  role: "owner" | "editor" | "viewer";
+// Mock auth — no Clerk keys in dev
+// UUIDs must be valid format for API path validation
+const MOCK_PROFILE = {
+  id: "00000000-0000-0000-0000-000000000001",
+  account_id: "00000000-0000-0000-0000-000000000002",
+  clerk_user_id: "dev_user",
+  name: "Demo User",
+  email: "demo@competeiq.app",
+  role: "owner" as const,
   account: {
-    id: string;
-    name: string;
-    plan: "starter" | "growth" | "enterprise";
-    created_at: string;
-  };
+    id: "00000000-0000-0000-0000-000000000002",
+    name: "Demo Account",
+    plan: "growth" as const,
+    created_at: new Date().toISOString(),
+  },
   brand_profile: {
-    id: string;
-    name: string;
-    setup_complete: boolean;
-  } | null;
-}
+    id: "00000000-0000-0000-0000-000000000003",
+    name: "Demo Brand",
+    setup_complete: true,
+  },
+};
 
 export function useAuthProfile() {
-  const { user, isLoaded, isSignedIn } = useUser();
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const {
-    data: profile,
-    isLoading: isProfileLoading,
-    error,
-  } = useQuery<UserProfile>({
-    queryKey: ["user-profile"],
-    queryFn: async () => {
-      const res = await api.get("/api/users/me");
-      return res.data;
-    },
-    enabled: !!isSignedIn,
-    retry: false,
-  });
-
-  useEffect(() => {
-    if (!isLoaded || isProfileLoading || !isSignedIn) return;
-    if (pathname.startsWith("/onboarding")) return;
-
-    if (profile && !profile.brand_profile?.setup_complete) {
-      router.push("/onboarding/brand");
-    }
-  }, [isLoaded, isSignedIn, isProfileLoading, profile, pathname, router]);
-
   return {
-    user,
-    profile,
-    isLoading: !isLoaded || (isSignedIn && isProfileLoading),
-    isSignedIn,
-    account: profile?.account ?? null,
-    brandProfile: profile?.brand_profile ?? null,
+    user: { fullName: "Demo User", primaryEmailAddress: { emailAddress: "demo@competeiq.app" } },
+    profile: MOCK_PROFILE,
+    isLoading: false,
+    isSignedIn: true,
+    account: MOCK_PROFILE.account,
+    brandProfile: MOCK_PROFILE.brand_profile,
   };
 }
