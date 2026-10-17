@@ -15,12 +15,16 @@ async def run_apify_actor(actor_id: str, input_data: dict, *, timeout: float = 1
         logger.warning("apify_skipped", reason="no API token configured")
         return []
 
+    # Apify REST paths address actors as "username~actor-name", not "username/actor-name"
+    actor_path = actor_id.replace("/", "~")
+
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        # Bearer auth keeps the token out of URLs (query params end up in error logs)
+        headers = {"Authorization": f"Bearer {settings.APIFY_API_TOKEN}"}
+        async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
             # Start actor run
             resp = await client.post(
-                f"{APIFY_API_URL}/acts/{actor_id}/runs",
-                params={"token": settings.APIFY_API_TOKEN},
+                f"{APIFY_API_URL}/acts/{actor_path}/runs",
                 json=input_data,
             )
             resp.raise_for_status()
@@ -31,7 +35,6 @@ async def run_apify_actor(actor_id: str, input_data: dict, *, timeout: float = 1
             while True:
                 resp = await client.get(
                     f"{APIFY_API_URL}/actor-runs/{run_id}",
-                    params={"token": settings.APIFY_API_TOKEN},
                 )
                 resp.raise_for_status()
                 status = resp.json()["data"]["status"]
@@ -49,7 +52,7 @@ async def run_apify_actor(actor_id: str, input_data: dict, *, timeout: float = 1
             dataset_id = resp.json()["data"]["defaultDatasetId"]
             resp = await client.get(
                 f"{APIFY_API_URL}/datasets/{dataset_id}/items",
-                params={"token": settings.APIFY_API_TOKEN, "format": "json"},
+                params={"format": "json"},
             )
             resp.raise_for_status()
             return resp.json()

@@ -407,12 +407,16 @@ async def run_report_generation(
             }
 
         # ONE LLM call for narrative
+        sov_leaders = ", ".join(
+            "{} ({}%)".format(e["brand_name"], e["sov_pct"])
+            for e in (sov.entries[:3] if sov else [])
+        )
         data_summary = (
             f"Period: {filter_mode} {period_start} to {period_end}\n"
             f"Competitors analyzed: {len(competitors)}\n"
             f"Alerts triggered: {len(alerts)}\n"
             f"Top themes: {', '.join(t.theme for t in themes[:5])}\n"
-            f"SOV leaders: {', '.join(f'{e[\"brand_name\"]} ({e[\"sov_pct\"]}%)' for e in (sov.entries[:3] if sov else []))}"
+            f"SOV leaders: {sov_leaders}"
         )
 
         try:

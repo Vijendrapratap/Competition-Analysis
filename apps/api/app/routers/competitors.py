@@ -63,7 +63,8 @@ async def add_competitor(
     )
     result = await db.execute(stmt)
     current_count = len(result.scalars().all())
-    plan = current_user.account.plan.value if current_user.account else "starter"
+    raw_plan = current_user.account.plan if current_user.account else "starter"
+    plan = getattr(raw_plan, "value", raw_plan)  # enum in DB rows, plain str on the dev stub
     limit = PLAN_COMPETITOR_LIMITS.get(plan, 5)
     if current_count >= limit:
         raise HTTPException(
